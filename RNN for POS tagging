@@ -1,0 +1,84 @@
+import torch
+import torch.nn as nn
+import torch.optim as optim
+
+class model(nn.Module):
+
+	def __init__(self, num_input, num_hidden, num_output):
+		super(model, self).__init__()
+		self.rnn = nn.GRU(num_input, num_hidden)
+		self.linear = nn.Linear(num_hidden, num_output)
+		self.activate = nn.Softmax(dim=-1)
+
+	def forward(self, x):
+		o, h = self.rnn(x)
+		z = self.linear(o)
+		y_ = self.activate(z)
+		return z, y_
+
+
+def pad(batch):
+	max_length = max([len(sequence) for sequence in batch])
+	for i in range(len(batch)):
+		batch[i] += ['</s>'] * (max_length - len(batch[i]))
+	return batch	
+
+def onehot(batch, vocab):
+	B = len(batch); L = len(batch[0]); I = len(vocab)
+	out = torch.zeros( (L, B, I) )
+	for b in range(B):
+		for l in range(L):
+			w = batch[b][l]
+			out[l, b, vocab.index(w)] = 1
+	return out
+
+def index(batch, tagset):
+	out = [ [tagset.index(t) for t in s] for s in batch ]
+	out = torch.LongTensor(out)
+	out = out.transpose(0, 1)
+	return out
+
+def interpret(output, tagset):
+	best = output.argmax(dim=-1)
+	best = best.transpose(0, 1)
+	out = [ [tagset[i.item()] for i in s] for s in best ]
+	return out 
+
+
+if __name__ == '__main__':
+
+	vocab = ["don't", 'go', 'play', '</s>']
+	tagset = ['A', 'N', 'V', '</s>']
+
+	m = model(len(vocab), 10, len(tagset))
+
+	word_sequences = [ ['go'], ['play', 'go'], ['go', 'play'], ["don't", 'go'], ["don't", 'play', 'go'] ]
+	tag_sequences = [ ['V'], ['V', 'N'], ['V', 'V'], ['A', 'V'], ['A', 'V', 'N'] ]
+	x = onehot(pad(word_sequences), vocab)
+	y = index(pad(tag_sequences), tagset)
+
+	z, y_ = m(x)
+	print('# Before training:\n', interpret(y_, tagset))
+
+	for epoch in range(3000):
+		m.zero_grad()
+		lf = nn.CrossEntropyLoss()
+		o = optim.SGD(m.parameters(), lr=0.01)
+		z, y_ = m(x)
+		loss = 0
+		for t in range(z.shape[0]):
+			loss += lf(z[t], y[t])
+		loss.backward()
+		o.step()
+
+	z, y_ = m(x)
+	print('# After training:\n', interpret(y_, tagset))
+
+	
+#Q.4
+	word_sequence=[["don't",'go']]
+	x1=onehot(word_sequence,vocab)
+	y1=index(pad(tag_sequences),tagset)
+	z1,y_1=m(x1)
+	print(interpret(y_1,tagset))	# [['A','V']]
+
