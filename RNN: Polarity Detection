@@ -1,0 +1,61 @@
+import torch
+import torch.nn as nn
+import torch.optim as optim
+
+class model(nn.Module):
+
+	def __init__(self, num_input, num_hidden, num_output):
+		super(model, self).__init__()
+		self.rnn = nn.GRU(num_input, num_hidden)
+		self.linear = nn.Linear(num_hidden, num_output)
+		self.activate = nn.Sigmoid()
+
+	def forward(self, x):
+		o, h = self.rnn(x)
+		z = self.linear(h)
+		y_ = self.activate(z)
+		return y_[0]
+
+
+if __name__ == '__main__':
+
+	m = model(3, 5, 1)
+
+	x1 = [ [1, 0, 0], [0, 0, 1], [0, 1, 0] ] # good not bad
+	x2 = [ [0, 1, 0], [0, 0, 1], [1, 0, 0] ] # bad not good
+	x3 = [ [0, 0, 1], [1, 0, 0], [0, 1, 0] ] # not good bad
+	x4 = [ [0, 0, 1], [0, 1, 0], [1, 0, 0] ] # not bad good
+	x = [ x1, x2, x3, x4 ]
+	x = torch.FloatTensor(x)
+	x = x.transpose(0, 1)
+	y1 = [1]; y2 = [0]; y3 = [0]; y4 = [1]
+	y = [ y1, y2, y3, y4 ]
+	y = torch.FloatTensor(y)
+
+	y_ = m(x)
+	print('# Before training:\n', y_)
+
+	lf = nn.BCELoss()
+	o = optim.SGD(m.parameters(), lr=0.1)
+	for epoch in range(3000):
+		m.zero_grad()
+		y_ = m(x)
+		loss = lf(y_, y)
+		loss.backward()
+		o.step()
+
+	y_ = m(x)
+	print('# After training:\n', y_)
+	
+	
+
+
+	x=[[0,0,1],[0,1,0]]	# not bad
+	x1=[x]
+	x1=torch.FloatTensor(x1)
+	x1=x1.transpose(0,1)
+	y1=m(x1)		
+	print(y1)		# probabibility of x not bad
+	#print(type(y1))	# < class 'torch.Tensor' >
+	
+	
